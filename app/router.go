@@ -27,18 +27,17 @@ func (r router) handleRequest(conn net.Conn) error {
 func (r router) route(conn net.Conn, header RequestHeader) {
 	route := header.getRoute()
 
-	reg, _ := regexp.Compile("^/(.+)/(.+)")
+	reg, _ := regexp.Compile("/([^/]+)")
 
 	subMatch := reg.FindAllStringSubmatch(route, -1)
-	fullRoute := subMatch[0]
-	path := fmt.Sprintf("/%s", fullRoute[1])
+	basePath := subMatch[0][0]
 
-	switch path {
+	switch basePath {
 	case "/":
 		r.writeResponse(conn, 200, "OK", "test")
 		break
 	case "/echo":
-		subPath := fullRoute[2]
+		subPath := subMatch[1][1]
 		r.writeResponse(conn, 200, "OK", subPath)
 		break
 	default:
