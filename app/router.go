@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 )
 
 type Router interface {
@@ -26,19 +27,31 @@ func (r router) handleRequest(conn net.Conn) error {
 func (r router) route(conn net.Conn, header RequestHeader) {
 	route := header.getRoute()
 
-	switch route {
+	reg, _ := regexp.Compile("^/(.+)/(.+)")
+
+	subMatch := reg.FindAllStringSubmatch(route, -1)
+	fullRoute := subMatch[0]
+	path := fmt.Sprintf("/%s", fullRoute[1])
+
+	switch path {
 	case "/":
-		r.writeResponse(conn, 200, "OK")
+		r.writeResponse(conn, 200, "OK", "test")
+		break
+	case "/echo":
+		subPath := fullRoute[2]
+		r.writeResponse(conn, 200, "OK", subPath)
 		break
 	default:
-		r.writeResponse(conn, 404, "Not Found")
+		r.writeResponse(conn, 404, "Not Found", "")
 		break
-
 	}
 }
 
-func (r router) writeResponse(conn net.Conn, statusCode int, status string) {
-	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n\r\n", statusCode, status)
+func (r router) writeResponse(conn net.Conn, statusCode int, status string, body string) {
+	contentType := "Content-Type: text/plain"
+	contentLength := fmt.Sprintf("Content-Length: %d", len(body))
+
+	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n%s\r\n%s\r\n%s", statusCode, status, contentType, contentLength, body)
 	conn.Write([]byte(res))
 }
 
