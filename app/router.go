@@ -51,7 +51,7 @@ func (r router) writeResponse(conn net.Conn, statusCode int, status string, body
 	contentType := "Content-Type: text/plain"
 	contentLength := fmt.Sprintf("Content-Length: %d", len(body))
 
-	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n%s\r\n%s\r\n%s", statusCode, status, contentType, contentLength, body)
+	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n%s\r\n%s\r\n%s\r\n", statusCode, status, contentType, contentLength, body)
 	conn.Write([]byte(res))
 }
 
