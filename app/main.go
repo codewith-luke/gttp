@@ -10,7 +10,6 @@ var _ = net.Listen
 var _ = os.Exit
 
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
 
 	ln, err := net.Listen("tcp", "0.0.0.0:4221")
@@ -21,6 +20,8 @@ func main() {
 
 	defer ln.Close()
 
+	router := NewRouter()
+
 	for {
 		conn, err := ln.Accept()
 
@@ -29,13 +30,18 @@ func main() {
 			os.Exit(1)
 		}
 
-		go handleConnection(conn)
+		go handleConnection(conn, router)
 	}
-
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, router Router) {
 	fmt.Println("Logs from your program will appear here!")
-	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	err := router.handleRequest(conn)
+
+	if err != nil {
+		fmt.Println("Error handling request: ", err.Error())
+		os.Exit(1)
+	}
+
 	conn.Close()
 }
