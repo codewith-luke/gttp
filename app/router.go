@@ -37,8 +37,8 @@ func (r router) route(conn net.Conn, header RequestHeader) {
 	}
 }
 
-func (r router) writeResponse(conn net.Conn, status int, reason string) {
-	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n\r\n", status, reason)
+func (r router) writeResponse(conn net.Conn, statusCode int, status string) {
+	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n\r\n", statusCode, status)
 	conn.Write([]byte(res))
 }
 
