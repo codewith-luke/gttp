@@ -2,26 +2,29 @@ package main
 
 import "bytes"
 
-type RequestHeader struct {
+type RequestHeaders struct {
 	requestType string
 	route       string
+	userAgent   string
 }
 
-func NewRequestHeader(packet []byte) RequestHeader {
+func NewRequestHeader(packet []byte) RequestHeaders {
 	fields := bytes.Fields(packet)
 	requestType := fields[0]
 	route := fields[1]
+	userAgent := fields[12]
 
-	return RequestHeader{
+	return RequestHeaders{
 		requestType: string(requestType),
+		userAgent:   string(userAgent),
 		route:       string(route),
 	}
 }
 
-func (rh RequestHeader) getType() string {
+func (rh RequestHeaders) getType() string {
 	return rh.requestType
 }
 
-func (rh RequestHeader) getRoute() string {
+func (rh RequestHeaders) getRoute() string {
 	return rh.route
 }

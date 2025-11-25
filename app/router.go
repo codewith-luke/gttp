@@ -16,12 +16,13 @@ type router struct {
 }
 
 type routeHandler struct {
-	handler func()
+	handler func(headers RequestHeaders)
 }
 
 type routeContext struct {
-	route string
-	path  string
+	route   string
+	path    string
+	headers RequestHeaders
 }
 
 type routePath struct {
@@ -39,8 +40,8 @@ func (r router) handleRequest(conn net.Conn) error {
 	return nil
 }
 
-func (r router) route(conn net.Conn, header RequestHeader) {
-	requestedRoute := header.getRoute()
+func (r router) route(conn net.Conn, headers RequestHeaders) {
+	requestedRoute := headers.getRoute()
 
 	routes := map[string]routePath{
 		"/": {
@@ -66,6 +67,11 @@ func (r router) route(conn net.Conn, header RequestHeader) {
 				},
 			},
 		},
+		"/user-agent": {
+			handler: func(c routeContext) {
+				r.writeResponse(conn, 200, "OK", c.headers.userAgent)
+			},
+		},
 		"/404": {
 			handler: func(c routeContext) {
 				r.writeResponse(conn, 404, "Not Found", "")
@@ -74,7 +80,7 @@ func (r router) route(conn net.Conn, header RequestHeader) {
 	}
 
 	rh := r.getHandler(routes, requestedRoute)
-	rh.handler()
+	rh.handler(headers)
 }
 
 func (r router) writeResponse(conn net.Conn, statusCode int, status string, body string) {
@@ -85,7 +91,7 @@ func (r router) writeResponse(conn net.Conn, statusCode int, status string, body
 	conn.Write([]byte(res))
 }
 
-func (r router) parseRequest(conn net.Conn) RequestHeader {
+func (r router) parseRequest(conn net.Conn) RequestHeaders {
 	var requestHeader = make([]byte, 1024)
 	_, err := conn.Read(requestHeader)
 
@@ -123,13 +129,14 @@ func (r router) getHandler(routes map[string]routePath, requestedRoute string) r
 		handler = routes["/404"].handler
 	}
 
-	c := routeContext{
-		route: requestedRoute,
-		path:  selectedPath,
-	}
-
 	return routeHandler{
-		handler: func() {
+		handler: func(headers RequestHeaders) {
+			c := routeContext{
+				route:   requestedRoute,
+				path:    selectedPath,
+				headers: headers,
+			}
+
 			handler(c)
 		},
 	}
