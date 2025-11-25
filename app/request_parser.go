@@ -1,30 +1,49 @@
 package main
 
-import "bytes"
+import (
+	"bytes"
+	"strings"
+)
 
-type RequestHeaders struct {
+type requestPacket struct {
 	requestType string
 	route       string
-	userAgent   string
+	headers     requestHeaders
 }
 
-func NewRequestHeader(packet []byte) RequestHeaders {
+type requestHeaders = map[string]string
+
+func NewRequestHeader(packet []byte) requestPacket {
 	fields := bytes.Fields(packet)
 	requestType := fields[0]
 	route := fields[1]
-	userAgent := fields[8]
+	rh := requestHeaders{}
 
-	return RequestHeaders{
+	for i := 3; i < len(fields); i += 2 {
+		if i+1 >= len(fields) {
+			break
+		}
+
+		if fields[i] == nil || fields[i+1] == nil {
+			break
+		}
+
+		key := strings.Replace(string(fields[i]), ":", "", 1)
+		value := string(fields[i+1])
+		rh[key] = value
+	}
+
+	return requestPacket{
 		requestType: string(requestType),
-		userAgent:   string(userAgent),
 		route:       string(route),
+		headers:     rh,
 	}
 }
 
-func (rh RequestHeaders) getType() string {
+func (rh requestPacket) getType() string {
 	return rh.requestType
 }
 
-func (rh RequestHeaders) getRoute() string {
+func (rh requestPacket) getRoute() string {
 	return rh.route
 }

@@ -16,13 +16,13 @@ type router struct {
 }
 
 type routeHandler struct {
-	handler func(headers RequestHeaders)
+	handler func(headers requestPacket)
 }
 
 type routeContext struct {
 	route   string
 	path    string
-	headers RequestHeaders
+	headers requestHeaders
 }
 
 type routePath struct {
@@ -40,7 +40,7 @@ func (r router) handleRequest(conn net.Conn) error {
 	return nil
 }
 
-func (r router) route(conn net.Conn, headers RequestHeaders) {
+func (r router) route(conn net.Conn, headers requestPacket) {
 	requestedRoute := headers.getRoute()
 
 	routes := map[string]routePath{
@@ -69,7 +69,8 @@ func (r router) route(conn net.Conn, headers RequestHeaders) {
 		},
 		"/user-agent": {
 			handler: func(c routeContext) {
-				r.writeResponse(conn, 200, "OK", c.headers.userAgent)
+				userAgent := c.headers["User-Agent"]
+				r.writeResponse(conn, 200, "OK", userAgent)
 			},
 		},
 		"/404": {
@@ -91,7 +92,7 @@ func (r router) writeResponse(conn net.Conn, statusCode int, status string, body
 	conn.Write([]byte(res))
 }
 
-func (r router) parseRequest(conn net.Conn) RequestHeaders {
+func (r router) parseRequest(conn net.Conn) requestPacket {
 	var requestHeader = make([]byte, 1024)
 	_, err := conn.Read(requestHeader)
 
@@ -130,11 +131,11 @@ func (r router) getHandler(routes map[string]routePath, requestedRoute string) r
 	}
 
 	return routeHandler{
-		handler: func(headers RequestHeaders) {
+		handler: func(packet requestPacket) {
 			c := routeContext{
 				route:   requestedRoute,
 				path:    selectedPath,
-				headers: headers,
+				headers: packet.headers,
 			}
 
 			handler(c)
