@@ -12,7 +12,7 @@ func NewRequestHeader(packet []byte) RequestHeaders {
 	fields := bytes.Fields(packet)
 	requestType := fields[0]
 	route := fields[1]
-	userAgent := fields[12]
+	userAgent := fields[8]
 
 	return RequestHeaders{
 		requestType: string(requestType),
