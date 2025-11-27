@@ -11,7 +11,7 @@ var _ = os.Exit
 var args appArgs
 
 func main() {
-	args := parseArguments(os.Args)
+	args = parseArguments(os.Args)
 	createDirectory(args.directory)
 	fmt.Println("Logs from your program will appear here!", args)
 
