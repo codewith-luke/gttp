@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"strings"
 )
 
 type requestPacket struct {
@@ -28,7 +27,7 @@ func NewRequestHeader(packet []byte) requestPacket {
 			break
 		}
 
-		key := strings.Replace(string(fields[i]), ":", "", 1)
+		key := string(fields[i][1:])
 		value := string(fields[i+1])
 		rh[key] = value
 	}

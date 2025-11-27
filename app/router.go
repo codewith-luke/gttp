@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	"regexp"
-	"strings"
 )
 
 type Router interface {
@@ -49,6 +48,23 @@ func (r router) route(conn net.Conn, headers requestPacket) {
 				r.writeResponse(conn, 200, "OK", "test")
 			},
 		},
+		"/files": {
+			paths: map[string]routePath{
+				"/:value": {
+					handler: func(c routeContext) {
+						res := c.path[1:]
+						fileContent, err := getFileContent(res)
+
+						if err != nil {
+							r.notFound(conn)
+							return
+						}
+
+						r.writeResponse(conn, 200, "OK", string(fileContent))
+					},
+				},
+			},
+		},
 		"/echo": {
 			handler: func(c routeContext) {
 				r.writeResponse(conn, 200, "OK", "test")
@@ -56,7 +72,7 @@ func (r router) route(conn net.Conn, headers requestPacket) {
 			paths: map[string]routePath{
 				"/:value": {
 					handler: func(c routeContext) {
-						res := strings.Replace(c.path, "/", "", 1)
+						res := c.path[1:]
 						r.writeResponse(conn, 200, "OK", res)
 					},
 				},
@@ -75,7 +91,7 @@ func (r router) route(conn net.Conn, headers requestPacket) {
 		},
 		"/404": {
 			handler: func(c routeContext) {
-				r.writeResponse(conn, 404, "Not Found", "")
+				r.notFound(conn)
 			},
 		},
 	}
@@ -141,4 +157,8 @@ func (r router) getHandler(routes map[string]routePath, requestedRoute string) r
 			handler(c)
 		},
 	}
+}
+
+func (r router) notFound(conn net.Conn) {
+	r.writeResponse(conn, 404, "Not Found", "")
 }
