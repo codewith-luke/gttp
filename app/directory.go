@@ -28,7 +28,7 @@ func createDirectory(path string) bool {
 }
 
 func getFileContent(name string) ([]byte, error) {
-	path := filepath.Join(os.TempDir(), args.directory, name)
+	path := filepath.Join(args.directory, name)
 
 	file, err := os.ReadFile(path)
 
