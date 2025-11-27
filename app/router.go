@@ -101,7 +101,7 @@ func (r router) route(conn net.Conn, headers requestPacket) {
 }
 
 func (r router) writeResponse(conn net.Conn, statusCode int, status string, body string) {
-	contentType := "Content-Type: text/plain"
+	contentType := "Content-Type: application/octet-stream"
 	contentLength := fmt.Sprintf("Content-Length: %d", len(body))
 
 	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n%s\r\n%s\r\n\r\n%s", statusCode, status, contentType, contentLength, body)
