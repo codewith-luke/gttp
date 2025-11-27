@@ -8,6 +8,7 @@ import (
 
 var _ = net.Listen
 var _ = os.Exit
+var args appArgs
 
 func main() {
 	args := parseArguments(os.Args)
