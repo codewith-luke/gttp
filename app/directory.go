@@ -29,9 +29,6 @@ func createDirectory(path string) bool {
 
 func getFileContent(name string) ([]byte, error) {
 	path := filepath.Join(args.directory, name)
-	fmt.Print("====")
-	fmt.Print(args)
-	fmt.Print(path)
 
 	file, err := os.ReadFile(path)
 

@@ -42,7 +42,6 @@ func (r router) handleRequest(conn net.Conn) error {
 func (r router) route(conn net.Conn, headers requestPacket) {
 	requestedRoute := headers.getRoute()
 
-	fmt.Println("woop1===", args)
 	routes := map[string]routePath{
 		"/": {
 			handler: func(c routeContext) {
@@ -55,7 +54,6 @@ func (r router) route(conn net.Conn, headers requestPacket) {
 				"/:value": {
 					handler: func(c routeContext) {
 						res := c.path[1:]
-						fmt.Println("woop2===", args)
 						fileContent, err := getFileContent(res)
 
 						if err != nil {
