@@ -45,7 +45,8 @@ func (r router) route(conn net.Conn, headers requestPacket) {
 	routes := map[string]routePath{
 		"/": {
 			handler: func(c routeContext) {
-				r.writeResponse(conn, 200, "OK", "test")
+				r.writeResponse(conn, 200, "text/plain", "OK", "test")
+
 			},
 		},
 		"/files": {
@@ -60,25 +61,20 @@ func (r router) route(conn net.Conn, headers requestPacket) {
 							return
 						}
 
-						r.writeResponse(conn, 200, "OK", string(fileContent))
+						r.writeResponse(conn, 200, "application/octet-stream", "OK", string(fileContent))
 					},
 				},
 			},
 		},
 		"/echo": {
 			handler: func(c routeContext) {
-				r.writeResponse(conn, 200, "OK", "test")
+				r.writeResponse(conn, 200, "text-plain", "OK", "test")
 			},
 			paths: map[string]routePath{
 				"/:value": {
 					handler: func(c routeContext) {
 						res := c.path[1:]
-						r.writeResponse(conn, 200, "OK", res)
-					},
-				},
-				"/bob": {
-					handler: func(c routeContext) {
-						r.writeResponse(conn, 200, "OK", "1")
+						r.writeResponse(conn, 200, "text/plain", "OK", res)
 					},
 				},
 			},
@@ -86,7 +82,7 @@ func (r router) route(conn net.Conn, headers requestPacket) {
 		"/user-agent": {
 			handler: func(c routeContext) {
 				userAgent := c.headers["User-Agent"]
-				r.writeResponse(conn, 200, "OK", userAgent)
+				r.writeResponse(conn, 200, "text/plain", "OK", userAgent)
 			},
 		},
 		"/404": {
@@ -100,11 +96,11 @@ func (r router) route(conn net.Conn, headers requestPacket) {
 	rh.handler(headers)
 }
 
-func (r router) writeResponse(conn net.Conn, statusCode int, status string, body string) {
-	contentType := "Content-Type: application/octet-stream"
+func (r router) writeResponse(conn net.Conn, statusCode int, contentType string, status string, body string) {
+	ct := fmt.Sprintf("Content-Type: %s", contentType)
 	contentLength := fmt.Sprintf("Content-Length: %d", len(body))
 
-	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n%s\r\n%s\r\n\r\n%s", statusCode, status, contentType, contentLength, body)
+	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n%s\r\n%s\r\n\r\n%s", statusCode, status, ct, contentLength, body)
 	conn.Write([]byte(res))
 }
 
@@ -160,5 +156,5 @@ func (r router) getHandler(routes map[string]routePath, requestedRoute string) r
 }
 
 func (r router) notFound(conn net.Conn) {
-	r.writeResponse(conn, 404, "Not Found", "")
+	r.writeResponse(conn, 404, "text/plain", "Not Found", "")
 }
