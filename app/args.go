@@ -8,7 +8,6 @@ type appArgs struct {
 
 func parseArguments(args []string) appArgs {
 	parsedArgs := appArgs{}
-	fmt.Print(args)
 
 	for i, arg := range args {
 		if arg == "--directory" {
@@ -20,6 +19,8 @@ func parseArguments(args []string) appArgs {
 			parsedArgs.directory = value
 		}
 	}
+
+	fmt.Print(parsedArgs)
 
 	return parsedArgs
 }
