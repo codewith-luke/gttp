@@ -13,7 +13,7 @@ var args appArgs
 func main() {
 	args = parseArguments(os.Args)
 	createDirectory(args.directory)
-	fmt.Println("Logs from your program will appear here!", args)
+	fmt.Println("Logs from your program will appear here!")
 
 	ln, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {

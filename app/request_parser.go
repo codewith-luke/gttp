@@ -27,7 +27,7 @@ func NewRequestHeader(packet []byte) requestPacket {
 			break
 		}
 
-		key := string(fields[i][1:])
+		key := string(fields[i][:len(fields[i])-1])
 		value := string(fields[i+1])
 		rh[key] = value
 	}
