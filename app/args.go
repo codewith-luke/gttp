@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 type appArgs struct {
 	directory string
 }
@@ -19,8 +17,6 @@ func parseArguments(args []string) appArgs {
 			parsedArgs.directory = value
 		}
 	}
-
-	fmt.Print(parsedArgs)
 
 	return parsedArgs
 }
