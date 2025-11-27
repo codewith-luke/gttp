@@ -1,11 +1,14 @@
 package main
 
+import "fmt"
+
 type appArgs struct {
 	directory string
 }
 
 func parseArguments(args []string) appArgs {
 	parsedArgs := appArgs{}
+	fmt.Print(args)
 
 	for i, arg := range args {
 		if arg == "--directory" {
