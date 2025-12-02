@@ -25,6 +25,11 @@ func main() {
 
 	router := NewRouter()
 
+	router.add("/hello/:value", func(context routeContext) {})
+	router.add("/hello", func(context routeContext) {
+		context.write(200, "text/plain", "OK", "Hello World!")
+	})
+
 	for {
 		conn, err := ln.Accept()
 

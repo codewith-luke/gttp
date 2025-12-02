@@ -7,11 +7,31 @@ import (
 	"regexp"
 )
 
-type Router interface {
-	handleRequest(conn net.Conn) error
+var (
+	ALL  = requestMethod{"ALL"}
+	GET  = requestMethod{"GET"}
+	POST = requestMethod{"POST"}
+)
+
+func (r requestMethod) String() string {
+	return r.key
 }
 
-type router struct {
+func NewRequestMethodFromString(method string) requestMethod {
+	switch method {
+	case ALL.key:
+		return ALL
+	case GET.key:
+		return GET
+	case POST.key:
+		return POST
+	default:
+		return GET
+	}
+}
+
+type Router interface {
+	handleRequest(conn net.Conn) error
 }
 
 type routeHandler struct {
@@ -19,92 +39,75 @@ type routeHandler struct {
 }
 
 type routeContext struct {
-	route   string
-	path    string
-	headers requestHeaders
+	route       string
+	path        string
+	headers     requestHeaders
+	requestType requestMethod
+	write       func(statusCode int, contentType string, status string, body string)
 }
 
-type routePath struct {
-	handler func(context routeContext)
-	paths   map[string]routePath
+type requestMethod struct {
+	key string
 }
 
-func NewRouter() Router {
-	return &router{}
+type routerV2 struct {
+	Routes
 }
 
-func (r router) handleRequest(conn net.Conn) error {
+type Routes = map[string]*route
+
+type route struct {
+	requestMethod requestMethod
+	handler       Handler
+	paths         map[string]*route
+}
+
+type Handler = func(context routeContext)
+
+func NewRouter() routerV2 {
+	r := routerV2{
+		Routes: make(Routes),
+	}
+
+	r.Routes["/404"] = &route{
+		handler: func(context routeContext) {
+			context.write(404, "text/plain", "Not Found", "")
+		},
+	}
+
+	return r
+}
+
+func (r routerV2) add(path string, handler Handler) {
+	r.generateRoute(path, handler)
+}
+
+func (r routerV2) handleRequest(conn net.Conn) error {
 	rh := r.parseRequest(conn)
 	r.route(conn, rh)
 	return nil
 }
 
-func (r router) route(conn net.Conn, headers requestPacket) {
-	requestedRoute := headers.getRoute()
+func (r routerV2) generateRoute(path string, handler Handler) {
+	regRoutePath := regexp.MustCompile(`/[^/]+|/`)
+	regPaths := regRoutePath.FindAllStringSubmatch(path, -1)
+	paths := make([]string, 0)
 
-	routes := map[string]routePath{
-		"/": {
-			handler: func(c routeContext) {
-				r.writeResponse(conn, 200, "text/plain", "OK", "test")
-
-			},
-		},
-		"/files": {
-			paths: map[string]routePath{
-				"/:value": {
-					handler: func(c routeContext) {
-						res := c.path[1:]
-						fileContent, err := getFileContent(res)
-
-						if err != nil {
-							r.notFound(conn)
-							return
-						}
-
-						r.writeResponse(conn, 200, "application/octet-stream", "OK", string(fileContent))
-					},
-				},
-			},
-		},
-		"/echo": {
-			handler: func(c routeContext) {
-				r.writeResponse(conn, 200, "text-plain", "OK", "test")
-			},
-			paths: map[string]routePath{
-				"/:value": {
-					handler: func(c routeContext) {
-						res := c.path[1:]
-						r.writeResponse(conn, 200, "text/plain", "OK", res)
-					},
-				},
-			},
-		},
-		"/user-agent": {
-			handler: func(c routeContext) {
-				userAgent := c.headers["User-Agent"]
-				r.writeResponse(conn, 200, "text/plain", "OK", userAgent)
-			},
-		},
-		"/404": {
-			handler: func(c routeContext) {
-				r.notFound(conn)
-			},
-		},
+	for _, p := range regPaths {
+		paths = append(paths, p[0])
 	}
 
-	rh := r.getHandler(routes, requestedRoute)
-	rh.handler(headers)
+	r.Routes = makeRoute(r.Routes, paths, handler)
 }
 
-func (r router) writeResponse(conn net.Conn, statusCode int, contentType string, status string, body string) {
-	ct := fmt.Sprintf("Content-Type: %s", contentType)
-	contentLength := fmt.Sprintf("Content-Length: %d", len(body))
+func (r routerV2) route(conn net.Conn, requestPacket requestPacket) {
+	requestedRoute := requestPacket.getRoute()
 
-	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n%s\r\n%s\r\n\r\n%s", statusCode, status, ct, contentLength, body)
-	conn.Write([]byte(res))
+	rh := r.getHandler(conn, requestPacket, r.Routes, requestedRoute)
+	rh.handler(requestPacket)
 }
 
-func (r router) parseRequest(conn net.Conn) requestPacket {
+func (r routerV2) parseRequest(conn net.Conn) requestPacket {
 	var requestHeader = make([]byte, 1024)
 	_, err := conn.Read(requestHeader)
 
@@ -116,23 +119,27 @@ func (r router) parseRequest(conn net.Conn) requestPacket {
 	return NewRequestHeader(requestHeader)
 }
 
-func (r router) getHandler(routes map[string]routePath, requestedRoute string) routeHandler {
+func (r routerV2) getHandler(conn net.Conn, packet requestPacket, routes Routes, requestedRoute string) routeHandler {
 	regRoutePath := regexp.MustCompile(`/[^/]+|/`)
 	paths := regRoutePath.FindAllStringSubmatch(requestedRoute, -1)
 	selectedPath := paths[0][0]
-	selectedRoute := routes[paths[0][0]]
+	selectedRoute, ok := routes[paths[0][0]]
 
-	for i := 1; i < len(paths); i++ {
-		selectedPath = paths[i][0]
-		r := selectedRoute.paths[paths[i][0]]
+	if !ok {
+		selectedRoute = routes["/404"]
+	} else {
+		for i := 1; i < len(paths); i++ {
+			selectedPath = paths[i][0]
+			r := selectedRoute.paths[paths[i][0]]
 
-		if r.handler != nil {
-			selectedRoute = r
-		} else if selectedRoute.paths["/:value"].handler != nil {
-			selectedRoute = selectedRoute.paths["/:value"]
-		} else {
-			selectedRoute = routes["/404"]
-			selectedPath = "/404"
+			if r.handler != nil {
+				selectedRoute = r
+			} else if selectedRoute.paths["/:value"].handler != nil {
+				selectedRoute = selectedRoute.paths["/:value"]
+			} else {
+				selectedRoute = routes["/404"]
+				selectedPath = "/404"
+			}
 		}
 	}
 
@@ -148,6 +155,9 @@ func (r router) getHandler(routes map[string]routePath, requestedRoute string) r
 				route:   requestedRoute,
 				path:    selectedPath,
 				headers: packet.headers,
+				write: func(statusCode int, contentType string, status string, body string) {
+					r.writeResponse(conn, statusCode, contentType, status, body)
+				},
 			}
 
 			handler(c)
@@ -155,6 +165,41 @@ func (r router) getHandler(routes map[string]routePath, requestedRoute string) r
 	}
 }
 
-func (r router) notFound(conn net.Conn) {
-	r.writeResponse(conn, 404, "text/plain", "Not Found", "")
+func (r routerV2) writeResponse(conn net.Conn, statusCode int, contentType string, status string, body string) {
+	ct := fmt.Sprintf("Content-Type: %s", contentType)
+	contentLength := fmt.Sprintf("Content-Length: %d", len(body))
+
+	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n%s\r\n%s\r\n\r\n%s", statusCode, status, ct, contentLength, body)
+	conn.Write([]byte(res))
+}
+
+func makeRoute(routes Routes, paths []string, handler Handler) Routes {
+	if handler == nil {
+		return routes
+	}
+
+	if len(paths) == 0 {
+		return routes
+	}
+
+	currPath := paths[0]
+	newPaths := paths[1:]
+	_, ok := routes[currPath]
+	currRoute := routes[currPath]
+
+	if !ok {
+		currRoute = &route{
+			paths: Routes{},
+		}
+	}
+
+	if len(newPaths) > 0 {
+		currRoute.paths = makeRoute(currRoute.paths, newPaths, handler)
+		routes[currPath] = currRoute
+		return routes
+	}
+
+	currRoute.handler = handler
+	routes[currPath] = currRoute
+	return routes
 }

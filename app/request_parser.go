@@ -5,16 +5,17 @@ import (
 )
 
 type requestPacket struct {
-	requestType string
-	route       string
-	headers     requestHeaders
+	requestType   string
+	route         string
+	headers       requestHeaders
+	requestMethod requestMethod
 }
 
 type requestHeaders = map[string]string
 
 func NewRequestHeader(packet []byte) requestPacket {
 	fields := bytes.Fields(packet)
-	requestType := fields[0]
+	rm := NewRequestMethodFromString(string(fields[0]))
 	route := fields[1]
 	rh := requestHeaders{}
 
@@ -33,14 +34,14 @@ func NewRequestHeader(packet []byte) requestPacket {
 	}
 
 	return requestPacket{
-		requestType: string(requestType),
-		route:       string(route),
-		headers:     rh,
+		requestMethod: rm,
+		route:         string(route),
+		headers:       rh,
 	}
 }
 
-func (rh requestPacket) getType() string {
-	return rh.requestType
+func (rh requestPacket) getMethod() string {
+	return rh.requestMethod.String()
 }
 
 func (rh requestPacket) getRoute() string {

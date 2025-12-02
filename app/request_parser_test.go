@@ -11,8 +11,8 @@ func TestRequestParser(t *testing.T) {
 	wantType := "GET"
 	wantRoute := "/hello"
 
-	if wantType != requestHeader.getType() {
-		t.Errorf(`requestPacket.getType() = %s, %s, want match for %s`, wantType, requestHeader.getType(), string(fakeRequest))
+	if wantType != requestHeader.getMethod() {
+		t.Errorf(`requestPacket.getMethod() = %s, %s, want match for %s`, wantType, requestHeader.getMethod(), string(fakeRequest))
 	}
 
 	if wantRoute != requestHeader.getRoute() {
