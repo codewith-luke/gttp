@@ -174,12 +174,8 @@ func (r routerV2) getHandler(conn net.Conn, packet requestPacket, routes Routes,
 
 	mh := handlers[packet.method.String()]
 
-	if mh.handler == nil {
-		handlers = routes["/404"].handlers
-	}
-
-	if mh.method.String() != packet.method.String() {
-		handlers = routes["/404"].handlers
+	if mh.handler == nil || mh.method.String() != packet.method.String() {
+		mh = routes["/404"].handlers[ALL_METHOD]
 	}
 
 	handler := mh.handler
