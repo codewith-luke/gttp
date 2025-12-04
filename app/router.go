@@ -78,8 +78,8 @@ func NewRouter() routerV2 {
 	return r
 }
 
-func (r routerV2) add(path string, handler Handler) {
-	r.generateRoute(path, handler)
+func (r routerV2) add(method requestMethod, path string, handler Handler) {
+	r.generateRoute(method, path, handler)
 }
 
 func (r routerV2) handleRequest(conn net.Conn) error {
@@ -88,7 +88,7 @@ func (r routerV2) handleRequest(conn net.Conn) error {
 	return nil
 }
 
-func (r routerV2) generateRoute(path string, handler Handler) {
+func (r routerV2) generateRoute(method requestMethod, path string, handler Handler) {
 	regRoutePath := regexp.MustCompile(`/[^/]+|/`)
 	regPaths := regRoutePath.FindAllStringSubmatch(path, -1)
 	paths := make([]string, 0)
@@ -97,7 +97,7 @@ func (r routerV2) generateRoute(path string, handler Handler) {
 		paths = append(paths, p[0])
 	}
 
-	r.Routes = makeRoute(r.Routes, paths, handler)
+	r.Routes = makeRoute(method, r.Routes, paths, handler)
 }
 
 func (r routerV2) route(conn net.Conn, requestPacket requestPacket) {
@@ -130,13 +130,19 @@ func (r routerV2) getHandler(conn net.Conn, packet requestPacket, routes Routes,
 	} else {
 		for i := 1; i < len(paths); i++ {
 			selectedPath = paths[i][0]
-			r := selectedRoute.paths[paths[i][0]]
+			r, ok := selectedRoute.paths[paths[i][0]]
 
-			if r.handler != nil {
+			if ok && (r.requestMethod == ALL || r.requestMethod == packet.requestMethod) {
 				selectedRoute = r
-			} else if selectedRoute.paths["/:value"].handler != nil {
-				selectedRoute = selectedRoute.paths["/:value"]
-			} else {
+			}
+
+			v, ok := selectedRoute.paths["/:value"]
+
+			if ok && v.handler != nil {
+				selectedRoute = r
+			}
+
+			if selectedRoute.handler == nil {
 				selectedRoute = routes["/404"]
 				selectedPath = "/404"
 			}
@@ -173,7 +179,7 @@ func (r routerV2) writeResponse(conn net.Conn, statusCode int, contentType strin
 	conn.Write([]byte(res))
 }
 
-func makeRoute(routes Routes, paths []string, handler Handler) Routes {
+func makeRoute(method requestMethod, routes Routes, paths []string, handler Handler) Routes {
 	if handler == nil {
 		return routes
 	}
@@ -194,12 +200,13 @@ func makeRoute(routes Routes, paths []string, handler Handler) Routes {
 	}
 
 	if len(newPaths) > 0 {
-		currRoute.paths = makeRoute(currRoute.paths, newPaths, handler)
+		currRoute.paths = makeRoute(method, currRoute.paths, newPaths, handler)
 		routes[currPath] = currRoute
 		return routes
 	}
 
 	currRoute.handler = handler
+	currRoute.requestMethod = method
 	routes[currPath] = currRoute
 	return routes
 }

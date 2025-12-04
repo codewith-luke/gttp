@@ -25,11 +25,11 @@ func main() {
 
 	router := NewRouter()
 
-	router.add("/", func(context routeContext) {
+	router.add(GET, "/", func(context routeContext) {
 		context.write(200, "text/plain", "OK", "test")
 	})
 
-	router.add("/files/:value", func(context routeContext) {
+	router.add(GET, "/files/:value", func(context routeContext) {
 		res := context.path[1:]
 		fileContent, err := getFileContent(res)
 
@@ -41,21 +41,25 @@ func main() {
 		context.write(200, "application/octet-stream", "OK", string(fileContent))
 	})
 
-	router.add("/echo", func(context routeContext) {
+	router.add(GET, "/test/me", func(context routeContext) {
 		context.write(200, "text/plain", "OK", "test")
 	})
 
-	router.add("/echo/:value", func(context routeContext) {
+	router.add(GET, "/echo", func(context routeContext) {
+		context.write(200, "text/plain", "OK", "test")
+	})
+
+	router.add(GET, "/echo/:value", func(context routeContext) {
 		res := context.path[1:]
 		context.write(200, "text/plain", "OK", res)
 	})
 
-	router.add("/user-agent", func(context routeContext) {
+	router.add(GET, "/user-agent", func(context routeContext) {
 		userAgent := context.headers["User-Agent"]
 		context.write(200, "text/plain", "OK", userAgent)
 	})
 
-	router.add("/hello", func(context routeContext) {
+	router.add(GET, "/hello", func(context routeContext) {
 		context.write(200, "text/plain", "OK", "Hello World!")
 	})
 
