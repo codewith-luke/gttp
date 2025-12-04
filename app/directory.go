@@ -38,3 +38,16 @@ func getFileContent(name string) ([]byte, error) {
 
 	return file, nil
 }
+
+func createFile(name string, data string) (bool, error) {
+	d := []byte(data)
+	path := filepath.Join(args.directory, name)
+	err := os.WriteFile(path, d, 0644)
+
+	if err != nil {
+		fmt.Println(err)
+		return false, err
+	}
+
+	return true, nil
+}

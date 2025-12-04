@@ -7,17 +7,29 @@ import (
 	"regexp"
 )
 
-var (
-	ALL  = requestMethod{"ALL"}
-	GET  = requestMethod{"GET"}
-	POST = requestMethod{"POST"}
+type MethodType string
+
+const (
+	GET_METHOD  MethodType = "GET"
+	POST_METHOD MethodType = "POST"
+	ALL_METHOD  MethodType = "ALL"
 )
 
-func (r requestMethod) String() string {
+var (
+	ALL  = requestMethod{ALL_METHOD}
+	GET  = requestMethod{GET_METHOD}
+	POST = requestMethod{POST_METHOD}
+)
+
+type requestMethod struct {
+	key MethodType
+}
+
+func (r requestMethod) String() MethodType {
 	return r.key
 }
 
-func NewRequestMethodFromString(method string) requestMethod {
+func NewRequestMethodFromString(method MethodType) requestMethod {
 	switch method {
 	case ALL.key:
 		return ALL
@@ -44,10 +56,7 @@ type routeContext struct {
 	headers     requestHeaders
 	requestType requestMethod
 	write       func(statusCode int, contentType string, status string, body string)
-}
-
-type requestMethod struct {
-	key string
+	body        string
 }
 
 type routerV2 struct {
@@ -57,12 +66,15 @@ type routerV2 struct {
 type Routes = map[string]*route
 
 type route struct {
-	requestMethod requestMethod
-	handler       Handler
-	paths         map[string]*route
+	handlers map[MethodType]MethodHandler
+	paths    map[string]*route
 }
 
 type Handler = func(context routeContext)
+type MethodHandler struct {
+	method  requestMethod
+	handler Handler
+}
 
 func NewRouter() routerV2 {
 	r := routerV2{
@@ -70,8 +82,13 @@ func NewRouter() routerV2 {
 	}
 
 	r.Routes["/404"] = &route{
-		handler: func(context routeContext) {
-			context.write(404, "text/plain", "Not Found", "")
+		handlers: map[MethodType]MethodHandler{
+			ALL_METHOD: {
+				method: ALL,
+				handler: func(context routeContext) {
+					context.write(404, "text/plain", "Not Found", "")
+				},
+			},
 		},
 	}
 
@@ -132,28 +149,40 @@ func (r routerV2) getHandler(conn net.Conn, packet requestPacket, routes Routes,
 			selectedPath = paths[i][0]
 			r, ok := selectedRoute.paths[paths[i][0]]
 
-			if ok && (r.requestMethod == ALL || r.requestMethod == packet.requestMethod) {
+			if ok {
 				selectedRoute = r
 			}
 
 			v, ok := selectedRoute.paths["/:value"]
 
-			if ok && v.handler != nil {
-				selectedRoute = r
+			if ok && v.handlers != nil {
+				selectedRoute = v
 			}
 
-			if selectedRoute.handler == nil {
+			if selectedRoute.handlers == nil {
 				selectedRoute = routes["/404"]
 				selectedPath = "/404"
 			}
 		}
 	}
 
-	handler := selectedRoute.handler
+	handlers := selectedRoute.handlers
 
-	if handler == nil {
-		handler = routes["/404"].handler
+	if handlers == nil {
+		handlers = routes["/404"].handlers
 	}
+
+	mh := handlers[packet.method.String()]
+
+	if mh.handler == nil {
+		handlers = routes["/404"].handlers
+	}
+
+	if mh.method.String() != packet.method.String() {
+		handlers = routes["/404"].handlers
+	}
+
+	handler := mh.handler
 
 	return routeHandler{
 		handler: func(packet requestPacket) {
@@ -161,6 +190,7 @@ func (r routerV2) getHandler(conn net.Conn, packet requestPacket, routes Routes,
 				route:   requestedRoute,
 				path:    selectedPath,
 				headers: packet.headers,
+				body:    packet.body,
 				write: func(statusCode int, contentType string, status string, body string) {
 					r.writeResponse(conn, statusCode, contentType, status, body)
 				},
@@ -172,10 +202,18 @@ func (r routerV2) getHandler(conn net.Conn, packet requestPacket, routes Routes,
 }
 
 func (r routerV2) writeResponse(conn net.Conn, statusCode int, contentType string, status string, body string) {
-	ct := fmt.Sprintf("Content-Type: %s", contentType)
-	contentLength := fmt.Sprintf("Content-Length: %d", len(body))
+	//res := fmt.Sprintf("HTTP/1.1 %d %s\r\n%s\r\n%s\r\n\r\n%s", statusCode, status, ct, contentLength, body)
+	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n", statusCode, status)
 
-	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n%s\r\n%s\r\n\r\n%s", statusCode, status, ct, contentLength, body)
+	if len(contentType) > 0 {
+		res += fmt.Sprintf("Content-Type: %s\r\n", contentType)
+	}
+
+	if len(body) > 0 {
+		contentLength := fmt.Sprintf("Content-Length: %d", len(body))
+		res += fmt.Sprintf("%s\r\n\r\n%s", contentLength, body)
+	}
+
 	conn.Write([]byte(res))
 }
 
@@ -205,8 +243,12 @@ func makeRoute(method requestMethod, routes Routes, paths []string, handler Hand
 		return routes
 	}
 
-	currRoute.handler = handler
-	currRoute.requestMethod = method
+	if currRoute.handlers == nil {
+		currRoute.handlers = map[MethodType]MethodHandler{}
+	}
+
+	mh := MethodHandler{method, handler}
+	currRoute.handlers[mh.method.String()] = mh
 	routes[currPath] = currRoute
 	return routes
 }
