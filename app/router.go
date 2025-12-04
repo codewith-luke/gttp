@@ -211,7 +211,7 @@ func (r routerV2) writeResponse(conn net.Conn, statusCode int, contentType strin
 
 	if len(body) > 0 {
 		contentLength := fmt.Sprintf("Content-Length: %d", len(body))
-		res += fmt.Sprintf("%s\r\n", contentLength, body)
+		res += fmt.Sprintf("%s\r\n", contentLength)
 	}
 
 	res += fmt.Sprintf("\r\n%s", body)
