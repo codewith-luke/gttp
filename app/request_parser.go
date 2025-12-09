@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"strconv"
 )
 
@@ -17,8 +18,12 @@ type requestHeaders = map[string]any
 func NewRequestHeader(packet []byte) RequestPacket {
 	fields := bytes.Fields(packet)
 	rm := NewRequestMethodFromString(MethodType(fields[0]))
-	route := fields[1]
+	route := string(fields[1])
 	rh := requestHeaders{}
+	newLineIndex := bytes.Index(packet, []byte("\r\n\r\n")) + 4
+	requestHead := packet[:newLineIndex]
+	fieldsB := bytes.Fields(requestHead)
+	fmt.Println(fieldsB)
 
 	for i := 3; i < len(fields); i += 2 {
 		if i+1 >= len(fields) {
@@ -44,7 +49,6 @@ func NewRequestHeader(packet []byte) RequestPacket {
 		rh[key] = value
 	}
 
-	newLineIndex := bytes.Index(packet, []byte("\r\n\r\n")) + 4
 	body := ""
 	cl, ok := rh["Content-Length"].(int)
 
@@ -55,7 +59,7 @@ func NewRequestHeader(packet []byte) RequestPacket {
 	if cl == 0 {
 		return RequestPacket{
 			Method:  rm,
-			Route:   string(route),
+			Route:   route,
 			Headers: rh,
 		}
 	}
@@ -66,7 +70,7 @@ func NewRequestHeader(packet []byte) RequestPacket {
 
 	return RequestPacket{
 		Method:  rm,
-		Route:   string(route),
+		Route:   route,
 		Headers: rh,
 		Body:    body,
 	}
