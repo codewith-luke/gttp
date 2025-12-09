@@ -29,17 +29,24 @@ func (r RequestMethod) String() MethodType {
 	return r.key
 }
 
-func NewRequestMethodFromString(method MethodType) RequestMethod {
+func NewRequestMethodFromString(method MethodType) (RequestMethod, error) {
+	if method == "" {
+		return RequestMethod{}, fmt.Errorf("invalid method")
+	}
+
+	m := GET
 	switch method {
 	case ALL.key:
-		return ALL
+		m = ALL
 	case GET.key:
-		return GET
+		m = GET
 	case POST.key:
-		return POST
+		m = POST
 	default:
-		return GET
+		m = GET
 	}
+
+	return m, nil
 }
 
 type Response struct {
@@ -59,13 +66,13 @@ type Router interface {
 }
 
 type RouteHandler struct {
-	handler func(headers RequestPacket)
+	handler func(headers RequestParser)
 }
 
 type RouteContext struct {
 	route       string
 	path        string
-	headers     requestHeaders
+	headers     RequestHeaders
 	requestType RequestMethod
 	write       func(response Response)
 	body        string
@@ -134,14 +141,14 @@ func (r RouterV2) generateRoute(method RequestMethod, path string, handler Handl
 	r.Routes = makeRoute(method, r.Routes, paths, handler)
 }
 
-func (r RouterV2) route(conn net.Conn, requestPacket RequestPacket) {
+func (r RouterV2) route(conn net.Conn, requestPacket RequestParser) {
 	requestedRoute := requestPacket.getRoute()
 
 	rh := r.getHandler(conn, requestPacket, r.Routes, requestedRoute)
 	rh.handler(requestPacket)
 }
 
-func (r RouterV2) parseRequest(conn net.Conn) RequestPacket {
+func (r RouterV2) parseRequest(conn net.Conn) RequestParser {
 	var requestHeader = make([]byte, 1024)
 	_, err := conn.Read(requestHeader)
 
@@ -150,10 +157,10 @@ func (r RouterV2) parseRequest(conn net.Conn) RequestPacket {
 		os.Exit(1)
 	}
 
-	return NewRequestHeader(requestHeader)
+	return NewRequest(requestHeader)
 }
 
-func (r RouterV2) getHandler(conn net.Conn, packet RequestPacket, routes Routes, requestedRoute string) RouteHandler {
+func (r RouterV2) getHandler(conn net.Conn, packet RequestParser, routes Routes, requestedRoute string) RouteHandler {
 	regRoutePath := regexp.MustCompile(`/[^/]+|/`)
 	paths := regRoutePath.FindAllStringSubmatch(requestedRoute, -1)
 	selectedPath := paths[0][0]
@@ -189,16 +196,16 @@ func (r RouterV2) getHandler(conn net.Conn, packet RequestPacket, routes Routes,
 		handlers = routes["/404"].handlers
 	}
 
-	mh := handlers[packet.Method.String()]
+	mh := handlers[packet.StatusLine.Method.String()]
 
-	if mh.handler == nil || mh.method.String() != packet.Method.String() {
+	if mh.handler == nil || mh.method.String() != packet.StatusLine.Method.String() {
 		mh = routes["/404"].handlers[ALL_METHOD]
 	}
 
 	handler := mh.handler
 
 	return RouteHandler{
-		handler: func(packet RequestPacket) {
+		handler: func(packet RequestParser) {
 			c := RouteContext{
 				route:   requestedRoute,
 				path:    selectedPath,

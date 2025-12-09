@@ -3,83 +3,133 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
 )
 
-type RequestPacket struct {
-	Route   string
-	Headers requestHeaders
-	Method  RequestMethod
-	Body    string
+type RequestParser struct {
+	Body       string
+	Headers    RequestHeaders
+	StatusLine RequestStatusLine
 }
 
-type requestHeaders = map[string]any
+type RequestPacket struct {
+	RequestStatusLine
+	RequestHeaders
+	RequestBody
+}
 
-func NewRequestHeader(packet []byte) RequestPacket {
-	fields := bytes.Fields(packet)
-	rm := NewRequestMethodFromString(MethodType(fields[0]))
-	route := string(fields[1])
-	rh := requestHeaders{}
-	newLineIndex := bytes.Index(packet, []byte("\r\n\r\n")) + 4
-	requestHead := packet[:newLineIndex]
-	fieldsB := bytes.Fields(requestHead)
-	fmt.Println(fieldsB)
+type RequestStatusLine struct {
+	Method  RequestMethod
+	Route   string
+	Version string
+}
 
-	for i := 3; i < len(fields); i += 2 {
-		if i+1 >= len(fields) {
-			break
-		}
+type RequestBody struct {
+	Body string
+}
 
-		if fields[i] == nil || fields[i+1] == nil {
-			break
-		}
+type RequestHeaders = map[string]any
 
-		key := string(fields[i][:len(fields[i])-1])
-		field := fields[i+1]
+func NewRequest(packet []byte) RequestParser {
+	bodyIndex := bytes.Index(packet, []byte("\r\n\r\n")) + 4
+	headerCollection := bytes.Split(packet[:bodyIndex-4], []byte("\r\n"))
 
-		var value any
-		val, err := strconv.Atoi(string(field))
+	rp := RequestParser{}
 
-		if err == nil {
-			value = val
-		} else {
-			value = string(fields[i+1])
-		}
+	rp.parseStatusLine(headerCollection[:1])
+	rp.parseRequestHeaders(headerCollection[1:])
+	rp.parseRequestBody(packet[bodyIndex:])
 
-		rh[key] = value
+	return rp
+}
+
+func (rp *RequestParser) getMethod() MethodType {
+	//return rp.Method.String()
+	return ""
+}
+
+func (rp *RequestParser) getRoute() string {
+	return rp.StatusLine.Route
+}
+
+func (rp *RequestParser) parseStatusLine(data [][]byte) {
+	values := bytes.Split(data[0], []byte(" "))
+	method, err := NewRequestMethodFromString(MethodType(values[0]))
+
+	if err != nil {
+		fmt.Println("invalid request method", err)
+		os.Exit(1)
 	}
 
+	route := string(values[1])
+
+	if len(route) == 0 {
+		fmt.Println("invalid request route")
+		os.Exit(1)
+	}
+
+	version := string(values[2])
+
+	if len(version) == 0 {
+		fmt.Println("invalid version")
+		os.Exit(1)
+	}
+
+	rp.StatusLine = RequestStatusLine{
+		Method:  method,
+		Route:   route,
+		Version: version,
+	}
+}
+
+func (rp *RequestParser) parseRequestHeaders(data [][]byte) {
+	headers := RequestHeaders{}
+
+	for _, h := range data {
+		values := bytes.Split(h, []byte(":"))
+		key := string(values[0])[:len(values[0])]
+		value := string(values[1])
+
+		if key == "Accept-Encoding" {
+			d := strings.Split(value, ",")
+			for i := range d {
+				d[i] = strings.TrimSpace(d[i])
+			}
+			headers[key] = d
+		} else {
+			fieldValue := strings.TrimSpace(value)
+			val, err := strconv.Atoi(fieldValue)
+
+			if err == nil {
+				headers[key] = val
+			} else {
+				headers[key] = fieldValue
+			}
+
+		}
+	}
+
+	rp.Headers = headers
+}
+
+func (rp *RequestParser) parseRequestBody(data []byte) {
 	body := ""
-	cl, ok := rh["Content-Length"].(int)
+	cl, ok := rp.Headers["Content-Length"].(int)
 
 	if !ok {
 		cl = 0
 	}
 
-	if cl == 0 {
-		return RequestPacket{
-			Method:  rm,
-			Route:   route,
-			Headers: rh,
-		}
-	}
+	body = string(data[:len(data)-cl])
+	rp.Body = body
+}
 
-	if newLineIndex != -1 {
-		body = string(packet[newLineIndex : newLineIndex+cl])
-	}
-
+func (rp *RequestParser) getRequest() RequestPacket {
 	return RequestPacket{
-		Method:  rm,
-		Route:   route,
-		Headers: rh,
-		Body:    body,
+		RequestStatusLine: RequestStatusLine{},
+		RequestHeaders:    nil,
+		RequestBody:       RequestBody{},
 	}
-}
-
-func (rh RequestPacket) getMethod() MethodType {
-	return rh.Method.String()
-}
-
-func (rh RequestPacket) getRoute() string {
-	return rh.Route
 }

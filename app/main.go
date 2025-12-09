@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 )
 
 var _ = net.Listen
@@ -111,31 +112,24 @@ func main() {
 
 	router.add(GET, "/echo/:value", func(context RouteContext) {
 		acceptEncoding, ok := context.headers["Accept-Encoding"]
+		res := context.path[1:]
+		headers := map[string]string{
+			"Content-Type": "text/plain",
+		}
 
 		if ok {
-			acceptEncoding = acceptEncoding.(string)
+			encodings, ok := acceptEncoding.([]string)
+
+			if ok && slices.Contains(encodings, "gzip") {
+				headers["Content-Encoding"] = "gzip"
+			}
 		}
 
-		res := context.path[1:]
-
-		if acceptEncoding == "gzip" {
-			context.write(Response{
-				StatusCode: 200,
-				Headers: map[string]string{
-					"Content-Type":     "text/plain",
-					"Content-Encoding": "gzip",
-				},
-				Body: res,
-			})
-		} else {
-			context.write(Response{
-				StatusCode: 200,
-				Headers: map[string]string{
-					"Content-Type": "text/plain",
-				},
-				Body: res,
-			})
-		}
+		context.write(Response{
+			StatusCode: 200,
+			Headers:    headers,
+			Body:       res,
+		})
 	})
 
 	router.add(GET, "/user-agent", func(context RouteContext) {
