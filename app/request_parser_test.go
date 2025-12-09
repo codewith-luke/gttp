@@ -12,10 +12,10 @@ func TestRequestParser(t *testing.T) {
 	wantRoute := "/hello"
 
 	if wantType != requestHeader.getMethod() {
-		t.Errorf(`requestPacket.getMethod() = %s, %s, want match for %s`, wantType, requestHeader.getMethod(), string(fakeRequest))
+		t.Errorf(`RequestPacket.getMethod() = %s, %s, want match for %s`, wantType, requestHeader.getMethod(), string(fakeRequest))
 	}
 
 	if wantRoute != requestHeader.getRoute() {
-		t.Errorf(`requestPacket.getRoute() = %s, %s, want match for %s`, wantRoute, requestHeader.getRoute(), string(fakeRequest))
+		t.Errorf(`RequestPacket.getRoute() = %s, %s, want match for %s`, wantRoute, requestHeader.getRoute(), string(fakeRequest))
 	}
 }

@@ -5,16 +5,16 @@ import (
 	"strconv"
 )
 
-type requestPacket struct {
-	route   string
-	headers requestHeaders
-	method  requestMethod
-	body    string
+type RequestPacket struct {
+	Route   string
+	Headers requestHeaders
+	Method  RequestMethod
+	Body    string
 }
 
 type requestHeaders = map[string]any
 
-func NewRequestHeader(packet []byte) requestPacket {
+func NewRequestHeader(packet []byte) RequestPacket {
 	fields := bytes.Fields(packet)
 	rm := NewRequestMethodFromString(MethodType(fields[0]))
 	route := fields[1]
@@ -53,10 +53,10 @@ func NewRequestHeader(packet []byte) requestPacket {
 	}
 
 	if cl == 0 {
-		return requestPacket{
-			method:  rm,
-			route:   string(route),
-			headers: rh,
+		return RequestPacket{
+			Method:  rm,
+			Route:   string(route),
+			Headers: rh,
 		}
 	}
 
@@ -64,18 +64,18 @@ func NewRequestHeader(packet []byte) requestPacket {
 		body = string(packet[newLineIndex : newLineIndex+cl])
 	}
 
-	return requestPacket{
-		method:  rm,
-		route:   string(route),
-		headers: rh,
-		body:    body,
+	return RequestPacket{
+		Method:  rm,
+		Route:   string(route),
+		Headers: rh,
+		Body:    body,
 	}
 }
 
-func (rh requestPacket) getMethod() MethodType {
-	return rh.method.String()
+func (rh RequestPacket) getMethod() MethodType {
+	return rh.Method.String()
 }
 
-func (rh requestPacket) getRoute() string {
-	return rh.route
+func (rh RequestPacket) getRoute() string {
+	return rh.Route
 }
