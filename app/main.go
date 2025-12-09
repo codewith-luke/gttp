@@ -110,7 +110,12 @@ func main() {
 	})
 
 	router.add(GET, "/echo/:value", func(context RouteContext) {
-		acceptEncoding := context.headers["Accept-Encoding"].(string)
+		acceptEncoding, ok := context.headers["Accept-Encoding"]
+
+		if ok {
+			acceptEncoding = acceptEncoding.(string)
+		}
+
 		res := context.path[1:]
 
 		if acceptEncoding == "gzip" {
