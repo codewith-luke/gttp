@@ -122,7 +122,7 @@ func (rp *RequestParser) parseRequestBody(data []byte) {
 		cl = 0
 	}
 
-	body = string(data[:len(data)-cl])
+	body = string(data[:cl])
 	rp.Body = body
 }
 
