@@ -225,6 +225,10 @@ func (r RouterV2) writeResponse(wr WriteResponse) {
 		res += fmt.Sprintf("Content-Type: %s\r\n", wr.Headers["Content-Type"])
 	}
 
+	if len(wr.Headers["Content-Encoding"]) > 0 {
+		res += fmt.Sprintf("Content-Encoding: %s\r\n", wr.Headers["Content-Encoding"])
+	}
+
 	if len(wr.Body) > 0 {
 		contentLength := fmt.Sprintf("Content-Length: %d", len(wr.Body))
 		res += fmt.Sprintf("%s\r\n", contentLength)
