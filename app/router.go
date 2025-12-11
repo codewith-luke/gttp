@@ -233,15 +233,19 @@ func (r RouterV2) getHandler(conn net.Conn, packet RequestParser, routes Routes,
 
 	return RouteHandler{
 		handler: func(packet RequestParser) {
+			headers := RequestHeaders{}
+
+			for k, v := range packet.Headers {
+				headers[k] = v
+			}
+
 			c := RouteContext{
 				Route:      requestedRoute,
 				Path:       selectedPath,
 				Conn:       conn,
 				body:       packet.Body,
 				statusCode: 200,
-				headers: RequestHeaders{
-					"Content-Type": "text/plain",
-				},
+				headers:    headers,
 			}
 
 			handler(c)
