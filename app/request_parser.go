@@ -45,9 +45,8 @@ func NewRequest(packet []byte) RequestParser {
 	return rp
 }
 
-func (rp *RequestParser) getMethod() MethodType {
-	//return rp.Method.String()
-	return ""
+func (rp *RequestParser) getMethod() RequestMethod {
+	return rp.StatusLine.Method
 }
 
 func (rp *RequestParser) getRoute() string {

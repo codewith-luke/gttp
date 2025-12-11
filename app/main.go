@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"slices"
+	"strings"
 )
 
 var _ = net.Listen
@@ -112,7 +116,7 @@ func main() {
 
 	router.add(GET, "/echo/:value", func(context RouteContext) {
 		acceptEncoding, ok := context.headers["Accept-Encoding"]
-		res := context.path[1:]
+		val := context.path[1:]
 		headers := map[string]string{
 			"Content-Type": "text/plain",
 		}
@@ -123,12 +127,21 @@ func main() {
 			if ok && slices.Contains(encodings, "gzip") {
 				headers["Content-Encoding"] = "gzip"
 			}
+
+			buf := new(bytes.Buffer)
+			r := strings.NewReader(val)
+
+			w := gzip.NewWriter(buf)
+			io.Copy(w, r)
+			fmt.Println(buf.String())
+			w.Close()
+			val = buf.String()
 		}
 
 		context.write(Response{
 			StatusCode: 200,
 			Headers:    headers,
-			Body:       res,
+			Body:       val,
 		})
 	})
 
