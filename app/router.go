@@ -51,14 +51,7 @@ func NewRequestMethodFromString(method MethodType) (RequestMethod, error) {
 
 type Response struct {
 	StatusCode int
-	Headers    map[string]string
-	Body       string
-}
-
-type WriteResponse struct {
-	Conn       net.Conn
-	StatusText string
-	Response
+	Headers    RequestHeaders
 }
 
 type Router interface {
@@ -70,12 +63,45 @@ type RouteHandler struct {
 }
 
 type RouteContext struct {
-	route       string
-	path        string
+	Route       string
+	Path        string
+	Conn        net.Conn
+	body        string
 	headers     RequestHeaders
 	requestType RequestMethod
-	write       func(response Response)
-	body        string
+	statusCode  int
+}
+
+func (c *RouteContext) Write(data []byte) (int, error) {
+	statusText := getStatusText(c.statusCode)
+	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n", c.statusCode, statusText)
+
+	ct, ok := c.headers["Content-Type"].(string)
+
+	if ok && len(ct) > 0 {
+		res += fmt.Sprintf("Content-Type: %s\r\n", c.headers["Content-Type"])
+	}
+
+	ce, ok := c.headers["Content-Encoding"].(string)
+
+	if ok && len(ce) > 0 {
+		res += fmt.Sprintf("Content-Encoding: %s\r\n", c.headers["Content-Encoding"])
+	}
+
+	if len(data) > 0 {
+		contentLength := fmt.Sprintf("Content-Length: %d", len(data))
+		res += fmt.Sprintf("%s\r\n", contentLength)
+	}
+
+	res += fmt.Sprintf("\r\n%s", string(data))
+
+	c.Conn.Write([]byte(res))
+	return len(data), nil
+}
+
+func (c *RouteContext) SetHeader(response Response) {
+	c.statusCode = response.StatusCode
+	c.headers = response.Headers
 }
 
 type RouterV2 struct {
@@ -105,12 +131,13 @@ func NewRouter() RouterV2 {
 			ALL_METHOD: {
 				method: ALL,
 				handler: func(context RouteContext) {
-					context.write(Response{
+					context.SetHeader(Response{
 						StatusCode: 404,
-						Headers: map[string]string{
+						Headers: RequestHeaders{
 							"Content-Type": "text/plain",
 						},
 					})
+					context.Write([]byte(""))
 				},
 			},
 		},
@@ -207,43 +234,19 @@ func (r RouterV2) getHandler(conn net.Conn, packet RequestParser, routes Routes,
 	return RouteHandler{
 		handler: func(packet RequestParser) {
 			c := RouteContext{
-				route:   requestedRoute,
-				path:    selectedPath,
-				headers: packet.Headers,
-				body:    packet.Body,
-				write: func(response Response) {
-					r.writeResponse(WriteResponse{
-						Conn:       conn,
-						Response:   response,
-						StatusText: getStatusText(response.StatusCode),
-					})
+				Route:      requestedRoute,
+				Path:       selectedPath,
+				Conn:       conn,
+				body:       packet.Body,
+				statusCode: 200,
+				headers: RequestHeaders{
+					"Content-Type": "text/plain",
 				},
 			}
 
 			handler(c)
 		},
 	}
-}
-
-func (r RouterV2) writeResponse(wr WriteResponse) {
-	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n", wr.StatusCode, wr.StatusText)
-
-	if len(wr.Headers["Content-Type"]) > 0 {
-		res += fmt.Sprintf("Content-Type: %s\r\n", wr.Headers["Content-Type"])
-	}
-
-	if len(wr.Headers["Content-Encoding"]) > 0 {
-		res += fmt.Sprintf("Content-Encoding: %s\r\n", wr.Headers["Content-Encoding"])
-	}
-
-	if len(wr.Body) > 0 {
-		contentLength := fmt.Sprintf("Content-Length: %d", len(wr.Body))
-		res += fmt.Sprintf("%s\r\n", contentLength)
-	}
-
-	res += fmt.Sprintf("\r\n%s", wr.Body)
-
-	wr.Conn.Write([]byte(res))
 }
 
 func getStatusText(code int) string {

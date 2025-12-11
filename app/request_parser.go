@@ -65,7 +65,7 @@ func (rp *RequestParser) parseStatusLine(data [][]byte) {
 	route := string(values[1])
 
 	if len(route) == 0 {
-		fmt.Println("invalid request route")
+		fmt.Println("invalid request Route")
 		os.Exit(1)
 	}
 

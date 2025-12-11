@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -31,139 +30,85 @@ func main() {
 	router := NewRouter()
 
 	router.add(GET, "/", func(context RouteContext) {
-		context.write(Response{
-			StatusCode: 200,
-			Headers: map[string]string{
-				"Content-Type": "text/plain",
-			},
-			Body: "test",
-		})
+		context.Write([]byte("Hello World!"))
 	})
 
 	router.add(GET, "/files/:value", func(context RouteContext) {
-		res := context.path[1:]
+		res := context.Path[1:]
 		fileContent, err := getFileContent(res)
 
 		if err != nil {
-			context.write(Response{
+			context.SetHeader(Response{
 				StatusCode: 404,
-				Headers: map[string]string{
-					"Content-Type": "text/plain",
-				},
 			})
+			context.Write([]byte(""))
 			return
 		}
 
-		context.write(Response{
-			StatusCode: 200,
-			Headers: map[string]string{
-				"Content-Type": "application/octet-stream",
-			},
-			Body: string(fileContent),
-		})
+		context.Write(fileContent)
 	})
 
 	router.add(POST, "/files/:value", func(context RouteContext) {
-		res := context.path[1:]
+		res := context.Path[1:]
 		ok, err := createFile(res, context.body)
 
 		if err != nil {
-			context.write(Response{
+			context.SetHeader(Response{
 				StatusCode: 404,
-				Headers: map[string]string{
-					"Content-Type": "text/plain",
-				},
 			})
+			context.Write([]byte(""))
 			return
 		}
 
 		if !ok {
-			context.write(Response{
+			context.SetHeader(Response{
 				StatusCode: 500,
-				Headers: map[string]string{
-					"Content-Type": "text/plain",
-				},
 			})
+			context.Write([]byte(""))
 		}
 
-		context.write(Response{
+		context.SetHeader(Response{
 			StatusCode: 201,
-			Headers: map[string]string{
+			Headers: RequestHeaders{
 				"Content-Type": "application/octet-stream",
 			},
 		})
-	})
-
-	router.add(GET, "/test/me", func(context RouteContext) {
-		context.write(Response{
-			StatusCode: 200,
-			Headers: map[string]string{
-				"Content-Type": "text/plain",
-			},
-			Body: "test",
-		})
+		context.Write([]byte(""))
 	})
 
 	router.add(GET, "/echo", func(context RouteContext) {
-		context.write(Response{
-			StatusCode: 200,
-			Headers: map[string]string{
-				"Content-Type": "text/plain",
-			},
-			Body: "test",
-		})
+		context.Write([]byte("test"))
 	})
 
 	router.add(GET, "/echo/:value", func(context RouteContext) {
 		acceptEncoding, ok := context.headers["Accept-Encoding"]
-		val := context.path[1:]
-		headers := map[string]string{
-			"Content-Type": "text/plain",
-		}
+		val := context.Path[1:]
+		headers := context.headers
 
 		if ok {
 			encodings, ok := acceptEncoding.([]string)
 
 			if ok && slices.Contains(encodings, "gzip") {
 				headers["Content-Encoding"] = "gzip"
+				context.SetHeader(Response{
+					StatusCode: 200,
+					Headers:    headers,
+				})
 			}
 
-			buf := new(bytes.Buffer)
 			r := strings.NewReader(val)
-
-			w := gzip.NewWriter(buf)
+			w := gzip.NewWriter(&context)
+			defer w.Close()
 			io.Copy(w, r)
-			fmt.Println(buf.String())
-			w.Close()
-			val = buf.String()
+			return
 		}
 
-		context.write(Response{
-			StatusCode: 200,
-			Headers:    headers,
-			Body:       val,
-		})
+		context.Write([]byte(val))
 	})
 
 	router.add(GET, "/user-agent", func(context RouteContext) {
 		userAgent := context.headers["User-Agent"].(string)
-		context.write(Response{
-			StatusCode: 200,
-			Headers: map[string]string{
-				"Content-Type": "text/plain",
-			},
-			Body: userAgent,
-		})
-	})
-
-	router.add(GET, "/hello", func(context RouteContext) {
-		context.write(Response{
-			StatusCode: 200,
-			Headers: map[string]string{
-				"Content-Type": "text/plain",
-			},
-			Body: "Hello World!",
-		})
+		context.Write([]byte(userAgent))
 	})
 
 	for {
