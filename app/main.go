@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -45,6 +46,12 @@ func main() {
 			return
 		}
 
+		context.SetHeader(Response{
+			StatusCode: 200,
+			Headers: RequestHeaders{
+				"Content-Type": "application/octet-stream",
+			},
+		})
 		context.Write(fileContent)
 	})
 
@@ -96,10 +103,14 @@ func main() {
 				})
 			}
 
+			buf := new(bytes.Buffer)
 			r := strings.NewReader(val)
-			w := gzip.NewWriter(&context)
+
+			w := gzip.NewWriter(buf)
 			defer w.Close()
 			io.Copy(w, r)
+
+			context.Write(buf.Bytes())
 			return
 		}
 

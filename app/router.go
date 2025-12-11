@@ -72,7 +72,7 @@ type RouteContext struct {
 	statusCode  int
 }
 
-func (c *RouteContext) Write(data []byte) (int, error) {
+func (c *RouteContext) Write(data []byte) {
 	statusText := getStatusText(c.statusCode)
 	res := fmt.Sprintf("HTTP/1.1 %d %s\r\n", c.statusCode, statusText)
 
@@ -96,7 +96,6 @@ func (c *RouteContext) Write(data []byte) (int, error) {
 	res += fmt.Sprintf("\r\n%s", string(data))
 
 	c.Conn.Write([]byte(res))
-	return len(data), nil
 }
 
 func (c *RouteContext) SetHeader(response Response) {
